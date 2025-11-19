@@ -14,6 +14,7 @@ const productSchema = new mongoose.Schema({
   },
   barcode: {
     type: String,
+    default: "1",
   },
   hsnCode: {
     type: String,
