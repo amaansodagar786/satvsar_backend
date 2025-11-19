@@ -72,11 +72,11 @@ cron.schedule("0 0 1 1 *", async () => {
 
 // Basic Route
 app.get('/', (req, res) => {
-  res.send('Hello World from Satvsar Inventory Backend !');
+  res.send('Hello World from Satvsarrrrrr Inventory Backend !');
 });
 
 // Server
-const PORT = process.env.PORT || 3037;
+const PORT = process.env.PORT || 3047;
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
