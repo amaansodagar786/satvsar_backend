@@ -72,7 +72,7 @@ cron.schedule("0 0 1 1 *", async () => {
 
 // Basic Route
 app.get('/', (req, res) => {
-  res.send('Hello World from Satvsarrrrrr Inventory Backend !');
+  res.send('Hello World from Satvsarrrrrrrrrrrrrrrrrrrrrrrrrr Inventory Backend !');
 });
 
 // Server
