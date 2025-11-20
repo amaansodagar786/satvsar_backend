@@ -18,6 +18,11 @@ const customerSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Contact number is required']
   },
+  gstNumber: {
+    type: String,
+    // No validation needed here since frontend handles it
+    // GST is optional, just store whatever comes from frontend
+  },
 
   loyaltyCoins: {
     type: Number,

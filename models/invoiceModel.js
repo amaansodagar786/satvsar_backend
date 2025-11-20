@@ -18,7 +18,17 @@ const invoiceSchema = new mongoose.Schema(
       name: String,
       email: String,
       mobile: String,
+      gstNumber: String,
     },
+
+    shippingDetails: {
+      name: String,
+      email: String,
+      mobile: String,
+      gstNumber: String,
+      
+    },
+
     items: [
       {
         productId: String,
@@ -48,15 +58,15 @@ const invoiceSchema = new mongoose.Schema(
     subtotal: Number,
     baseValue: Number,
     discount: Number,
-    promoDiscount: Number, 
-    appliedPromoCode: {    
+    promoDiscount: Number,
+    appliedPromoCode: {
       promoId: String,
       code: String,
       discount: Number,
       description: String,
       appliedAt: Date
     },
-    loyaltyDiscount: Number, 
+    loyaltyDiscount: Number,
     loyaltyCoinsUsed: Number,
     tax: Number,
     cgst: Number,

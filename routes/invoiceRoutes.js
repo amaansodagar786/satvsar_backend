@@ -9,239 +9,6 @@ const InvoiceUpdateHistory = require("../models/invoiceUpdateHistory");
 
 
 
-// In your create-invoice route
-// router.post("/create-invoice", async (req, res) => {
-//   const startTime = Date.now();
-//   const requestId = `INV_REQ_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-//   try {
-//     console.log(`🔄 [${requestId}] Starting invoice creation process`);
-//     console.log(`📥 [${requestId}] Request body summary:`, {
-//       customer: req.body.customer?.name || 'Unknown',
-//       itemsCount: req.body.items?.length || 0,
-//       totalAmount: req.body.total,
-//       paymentType: req.body.paymentType,
-//       hasPromo: !!req.body.appliedPromoCode
-//     });
-
-//     // Generate Invoice number using atomic operation
-//     console.log(`🔢 [${requestId}] Generating invoice number...`);
-//     const counterId = "invoices";
-//     let counter = await GlobalCounter.findOneAndUpdate(
-//       { id: counterId },
-//       { $inc: { count: 1 } },
-//       {
-//         new: true,
-//         upsert: true,
-//         setDefaultsOnInsert: true
-//       }
-//     );
-
-//     const newInvoiceNumber = `INV${new Date().getFullYear()}${String(counter.count).padStart(4, "0")}`;
-//     console.log(`✅ [${requestId}] Invoice number generated: ${newInvoiceNumber}`);
-//     console.log(`📊 [${requestId}] Counter updated - next count: ${counter.count + 1}`);
-
-//     // Create invoice with generated number including promo details
-//     const invoiceData = {
-//       ...req.body,
-//       invoiceNumber: newInvoiceNumber,
-//       // Ensure promo details are properly saved
-//       appliedPromoCode: req.body.appliedPromoCode ? {
-//         ...req.body.appliedPromoCode,
-//         appliedAt: new Date()
-//       } : null,
-//       promoDiscount: req.body.promoDiscount || 0
-//     };
-
-//     console.log(`📄 [${requestId}] Invoice data prepared:`, {
-//       invoiceNumber: newInvoiceNumber,
-//       customer: invoiceData.customer?.name,
-//       itemsCount: invoiceData.items?.length,
-//       subtotal: invoiceData.subtotal,
-//       discount: invoiceData.discount,
-//       promoDiscount: invoiceData.promoDiscount,
-//       total: invoiceData.total,
-//       paymentType: invoiceData.paymentType
-//     });
-
-//     // Step 1: Create the invoice first
-//     console.log(`💾 [${requestId}] Saving invoice to database...`);
-//     const newInvoice = new Invoice(invoiceData);
-//     await newInvoice.save();
-//     console.log(`✅ [${requestId}] Invoice saved successfully to database`);
-
-//     // Step 2: Update inventory quantities for each item
-//     console.log(`📦 [${requestId}] Starting inventory update for ${invoiceData.items?.length} items`);
-
-//     for (const [index, item] of req.body.items.entries()) {
-//       console.log(`🔍 [${requestId}] Processing item ${index + 1}/${req.body.items.length}:`, {
-//         productId: item.productId,
-//         name: item.name,
-//         batchNumber: item.batchNumber,
-//         quantity: item.quantity,
-//         price: item.price
-//       });
-
-//       const inventoryItem = await Inventory.findOne({ productId: item.productId });
-
-//       if (!inventoryItem) {
-//         console.log(`❌ [${requestId}] Product not found in inventory:`, {
-//           productId: item.productId,
-//           productName: item.name,
-//           batchNumber: item.batchNumber
-//         });
-
-//         // Rollback: Delete the created invoice
-//         console.log(`🔄 [${requestId}] Rolling back - deleting invoice ${newInvoiceNumber}`);
-//         await Invoice.findOneAndDelete({ invoiceNumber: newInvoiceNumber });
-
-//         console.log(`❌ [${requestId}] Invoice creation failed - Product not found`);
-//         return res.status(404).json({
-//           success: false,
-//           message: `Product "${item.name}" not found in inventory`,
-//           requestId: requestId
-//         });
-//       }
-
-//       console.log(`📋 [${requestId}] Inventory item found:`, {
-//         productName: inventoryItem.productName,
-//         totalQuantity: inventoryItem.totalQuantity,
-//         batchesCount: inventoryItem.batches.length
-//       });
-
-//       const batch = inventoryItem.batches.find(b => b.batchNumber === item.batchNumber);
-
-//       if (!batch) {
-//         console.log(`❌ [${requestId}] Batch not found:`, {
-//           productId: item.productId,
-//           productName: item.name,
-//           requestedBatch: item.batchNumber,
-//           availableBatches: inventoryItem.batches.map(b => b.batchNumber)
-//         });
-
-//         // Rollback: Delete the created invoice
-//         console.log(`🔄 [${requestId}] Rolling back - deleting invoice ${newInvoiceNumber}`);
-//         await Invoice.findOneAndDelete({ invoiceNumber: newInvoiceNumber });
-
-//         console.log(`❌ [${requestId}] Invoice creation failed - Batch not found`);
-//         return res.status(404).json({
-//           success: false,
-//           message: `Batch "${item.batchNumber}" not found for product "${item.name}"`,
-//           requestId: requestId,
-//           availableBatches: inventoryItem.batches.map(b => b.batchNumber)
-//         });
-//       }
-
-//       console.log(`📊 [${requestId}] Batch details:`, {
-//         batchNumber: batch.batchNumber,
-//         currentQuantity: batch.quantity,
-//         requestedQuantity: item.quantity,
-//         expiryDate: batch.expiryDate
-//       });
-
-//       if (batch.quantity < item.quantity) {
-//         console.log(`❌ [${requestId}] Insufficient quantity:`, {
-//           productName: item.name,
-//           batchNumber: item.batchNumber,
-//           available: batch.quantity,
-//           requested: item.quantity,
-//           shortage: item.quantity - batch.quantity
-//         });
-
-//         // Rollback: Delete the created invoice
-//         console.log(`🔄 [${requestId}] Rolling back - deleting invoice ${newInvoiceNumber}`);
-//         await Invoice.findOneAndDelete({ invoiceNumber: newInvoiceNumber });
-
-//         console.log(`❌ [${requestId}] Invoice creation failed - Insufficient quantity`);
-//         return res.status(400).json({
-//           success: false,
-//           message: `Insufficient quantity for "${item.name}" (Batch: ${item.batchNumber}). Available: ${batch.quantity}, Requested: ${item.quantity}`,
-//           requestId: requestId,
-//           available: batch.quantity,
-//           requested: item.quantity
-//         });
-//       }
-
-//       // Update inventory quantity
-//       const oldQuantity = batch.quantity;
-//       batch.quantity -= item.quantity;
-//       const newQuantity = batch.quantity;
-
-//       console.log(`🔄 [${requestId}] Updating inventory:`, {
-//         productName: item.name,
-//         batchNumber: item.batchNumber,
-//         quantityChange: -item.quantity,
-//         oldQuantity: oldQuantity,
-//         newQuantity: newQuantity
-//       });
-
-//       await inventoryItem.save();
-//       console.log(`✅ [${requestId}] Inventory updated successfully for ${item.name}`);
-//     }
-
-//     // Calculate processing time
-//     const processingTime = Date.now() - startTime;
-
-//     console.log(`🎉 [${requestId}] Invoice creation completed successfully!`, {
-//       invoiceNumber: newInvoiceNumber,
-//       totalItems: newInvoice.items.length,
-//       customer: newInvoice.customer?.name,
-//       totalAmount: newInvoice.total,
-//       processingTime: `${processingTime}ms`,
-//       timestamp: new Date().toISOString()
-//     });
-
-//     console.log(`📦 [${requestId}] Inventory updates summary:`, {
-//       itemsProcessed: newInvoice.items.length,
-//       totalQuantityReduced: newInvoice.items.reduce((sum, item) => sum + item.quantity, 0),
-//       customer: newInvoice.customer?.name
-//     });
-
-//     // Step 3: Return success response
-//     res.status(201).json({
-//       success: true,
-//       message: "Invoice created successfully",
-//       data: newInvoice.toObject(),
-//       requestId: requestId,
-//       processingTime: `${processingTime}ms`
-//     });
-
-//   } catch (error) {
-//     const processingTime = Date.now() - startTime;
-
-//     console.error(`💥 [${requestId}] Error creating invoice:`, {
-//       error: error.message,
-//       stack: error.stack,
-//       processingTime: `${processingTime}ms`,
-//       timestamp: new Date().toISOString()
-//     });
-
-//     console.error(`📋 [${requestId}] Error context:`, {
-//       invoiceNumber: newInvoiceNumber || 'NOT_GENERATED',
-//       itemsCount: req.body.items?.length,
-//       customer: req.body.customer?.name
-//     });
-
-//     // If invoice was created but something else failed, attempt rollback
-//     if (newInvoiceNumber) {
-//       try {
-//         console.log(`🔄 [${requestId}] Attempting to rollback - deleting invoice ${newInvoiceNumber}`);
-//         await Invoice.findOneAndDelete({ invoiceNumber: newInvoiceNumber });
-//         console.log(`✅ [${requestId}] Rollback completed`);
-//       } catch (rollbackError) {
-//         console.error(`❌ [${requestId}] Rollback failed:`, rollbackError.message);
-//       }
-//     }
-
-//     res.status(500).json({
-//       success: false,
-//       message: "Failed to create invoice",
-//       error: error.message,
-//       requestId: requestId,
-//       processingTime: `${processingTime}ms`
-//     });
-//   }
-// });
 
 
 // In your create-invoice route - FIXED VERSION
@@ -825,13 +592,14 @@ router.get("/get-deleted-invoice/:originalInvoiceNumber", async (req, res) => {
 });
 
 // Update invoice
+// Update invoice - COMPLETE UPDATED VERSION WITH SHIPPING DETAILS
 router.put("/update-invoice/:invoiceNumber", async (req, res) => {
   const startTime = Date.now();
   const requestId = `UPDATE_INV_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
   try {
     const { invoiceNumber } = req.params;
-    const { customer, paymentType, remarks } = req.body;
+    const { customer, paymentType, remarks, shippingDetails } = req.body;
 
     console.log(`🔄 [${requestId}] Starting invoice update process`);
     console.log(`📥 [${requestId}] Update request details:`, {
@@ -839,6 +607,8 @@ router.put("/update-invoice/:invoiceNumber", async (req, res) => {
       hasCustomerData: !!customer,
       paymentType: paymentType,
       hasRemarks: remarks !== undefined,
+      hasShippingDetails: shippingDetails !== undefined,
+      shippingDetailsType: shippingDetails === null ? 'null (same as billing)' : typeof shippingDetails,
       timestamp: new Date().toISOString()
     });
 
@@ -849,7 +619,10 @@ router.put("/update-invoice/:invoiceNumber", async (req, res) => {
         email: customer.email
       } : 'No customer update',
       paymentType: paymentType || 'No payment type update',
-      remarks: remarks !== undefined ? (remarks ? `"${remarks}"` : 'Clearing remarks') : 'No remarks update'
+      remarks: remarks !== undefined ? (remarks ? `"${remarks}"` : 'Clearing remarks') : 'No remarks update',
+      shippingDetails: shippingDetails !== undefined ?
+        (shippingDetails === null ? 'Same as billing' : shippingDetails) :
+        'No shipping details update'
     });
 
     // Check if the invoice exists
@@ -870,6 +643,7 @@ router.put("/update-invoice/:invoiceNumber", async (req, res) => {
       currentCustomer: existingInvoice.customer?.name,
       currentPaymentType: existingInvoice.paymentType,
       currentRemarks: existingInvoice.remarks || 'No remarks',
+      currentShippingDetails: existingInvoice.shippingDetails || 'Not set',
       totalAmount: existingInvoice.total
     });
 
@@ -877,6 +651,40 @@ router.put("/update-invoice/:invoiceNumber", async (req, res) => {
     const updatePayload = {};
     const changes = [];
 
+    // ✅ SHIPPING DETAILS UPDATE LOGIC
+    if (shippingDetails !== undefined) {
+      if (shippingDetails === null) {
+        // Clear shipping details (same as billing)
+        updatePayload.shippingDetails = null;
+        changes.push("Shipping details: Cleared (same as billing)");
+        console.log(`🚚 [${requestId}] Clearing shipping details (same as billing)`);
+      } else if (typeof shippingDetails === 'object') {
+        // Validate shipping details
+        if (!shippingDetails.name || !shippingDetails.mobile) {
+          console.log(`❌ [${requestId}] Shipping details validation failed:`, {
+            hasName: !!shippingDetails.name,
+            hasMobile: !!shippingDetails.mobile
+          });
+          return res.status(400).json({
+            success: false,
+            message: "Shipping name and mobile are required",
+            requestId: requestId
+          });
+        }
+
+        // Update shipping details
+        updatePayload.shippingDetails = {
+          name: shippingDetails.name || "",
+          email: shippingDetails.email || "",
+          mobile: shippingDetails.mobile || "",
+          gstNumber: shippingDetails.gstNumber || ""
+        };
+        changes.push(`Shipping details: Updated to ${shippingDetails.name} (${shippingDetails.mobile})`);
+        console.log(`🚚 [${requestId}] Updating shipping details:`, shippingDetails);
+      }
+    }
+
+    // PAYMENT TYPE UPDATE LOGIC
     if (paymentType && ["cash", "card", "upi"].includes(paymentType)) {
       if (paymentType !== existingInvoice.paymentType) {
         updatePayload.paymentType = paymentType;
@@ -887,6 +695,7 @@ router.put("/update-invoice/:invoiceNumber", async (req, res) => {
       }
     }
 
+    // CUSTOMER UPDATE LOGIC
     if (customer) {
       const customerChanges = [];
       const updatedCustomer = {
@@ -917,7 +726,7 @@ router.put("/update-invoice/:invoiceNumber", async (req, res) => {
       }
     }
 
-    // Add remarks handling - allow empty string to clear remarks
+    // REMARKS UPDATE LOGIC
     if (remarks !== undefined) {
       const currentRemarks = existingInvoice.remarks || '';
       if (remarks !== currentRemarks) {
@@ -964,7 +773,8 @@ router.put("/update-invoice/:invoiceNumber", async (req, res) => {
       processingTime: `${processingTime}ms`,
       updatedAt: updatedInvoice.updatedAt,
       customer: updatedInvoice.customer?.name,
-      paymentType: updatedInvoice.paymentType
+      paymentType: updatedInvoice.paymentType,
+      shippingDetails: updatedInvoice.shippingDetails || 'Not set'
     });
 
     console.log(`📊 [${requestId}] Final invoice state:`, {
@@ -972,6 +782,7 @@ router.put("/update-invoice/:invoiceNumber", async (req, res) => {
       mobile: updatedInvoice.customer?.mobile,
       paymentType: updatedInvoice.paymentType,
       remarks: updatedInvoice.remarks || 'No remarks',
+      shippingDetails: updatedInvoice.shippingDetails || 'Same as billing',
       totalAmount: updatedInvoice.total
     });
 
@@ -998,7 +809,8 @@ router.put("/update-invoice/:invoiceNumber", async (req, res) => {
     console.error(`📋 [${requestId}] Error context:`, {
       customerData: req.body.customer ? 'Present' : 'Absent',
       paymentType: req.body.paymentType,
-      remarks: req.body.remarks !== undefined ? 'Present' : 'Absent'
+      remarks: req.body.remarks !== undefined ? 'Present' : 'Absent',
+      shippingDetails: req.body.shippingDetails !== undefined ? 'Present' : 'Absent'
     });
 
     res.status(500).json({

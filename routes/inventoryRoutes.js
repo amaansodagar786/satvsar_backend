@@ -176,7 +176,7 @@ router.post("/add-batches", async (req, res) => {
 
                 // Calculate expiry date (36 months from manufacture)
                 const expiryDate = new Date(manufactureDate);
-                expiryDate.setMonth(expiryDate.getMonth() + 60);
+                expiryDate.setMonth(expiryDate.getMonth() + 12);
 
                 console.log("   Manufacture Date:", manufactureDate);
                 console.log("   Expiry Date:", expiryDate);
@@ -479,7 +479,7 @@ router.post("/bulk-upload-batches", upload.single('file'), async (req, res) => {
 
                 // Calculate expiry date (36 months from manufacture)
                 const expiryDate = new Date(manufactureDate);
-                expiryDate.setMonth(expiryDate.getMonth() + 60);
+                expiryDate.setMonth(expiryDate.getMonth() + 12);
 
                 // Check if batch already exists with same manufacture month
                 const existingBatchIndex = inventoryItem.batches.findIndex(
